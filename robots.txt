@@ -1,0 +1,9 @@
+# Robots.txt for nischayarora.com
+# Welcome, crawlers.
+
+User-agent: *
+Allow: /
+Disallow:
+
+# Sitemap
+Sitemap: https://nischayarora.com/sitemap.xml
