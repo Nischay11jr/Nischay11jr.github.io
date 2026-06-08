@@ -3088,6 +3088,126 @@
     })();
   </script>
 
+  <!-- >>> COPY 2 of 3 — markup (paste just before </body>) ========= -->
+<button class="na-launcher" id="naLauncher">
+  <span class="na-dot"></span>
+  Ask Nischay
+</button>
+ 
+<div class="na-panel" id="naPanel">
+  <div class="na-head">
+    <div class="na-avatar">N</div>
+    <div class="na-who">
+      <div class="na-name">Nischay<span class="na-cur"></span></div>
+      <div class="na-status">usually replies instantly</div>
+    </div>
+    <button class="na-close" id="naClose" aria-label="Close">&times;</button>
+  </div>
+ 
+  <div class="na-log" id="naLog"></div>
+ 
+  <div class="na-chips" id="naChips">
+    <button class="na-chip">What's your FYP about?</button>
+    <button class="na-chip">Why should I hire you?</button>
+    <button class="na-chip">What do you enjoy most?</button>
+  </div>
+ 
+  <div class="na-foot">
+    <div class="na-inputrow">
+      <textarea class="na-input" id="naInput" rows="1" placeholder="Ask about my work…"></textarea>
+      <button class="na-send" id="naSend" aria-label="Send">&uarr;</button>
+    </div>
+    <div class="na-disclaimer">AI-generated · answers reflect my portfolio</div>
+  </div>
+</div>
+<!-- <<< END 2 of 3 ============================================== -->
+
+  <!-- >>> COPY 3 of 3 — script (paste just before </body>) ========= -->
+<script>
+  // Your deployed Worker. The bio + API key live there, not here.
+  const NA_WORKER_URL = "https://portfolio-chatbot.nischay11jr.workers.dev";
+ 
+  const naLauncher = document.getElementById('naLauncher');
+  const naPanel = document.getElementById('naPanel');
+  const naClose = document.getElementById('naClose');
+  const naLog = document.getElementById('naLog');
+  const naInput = document.getElementById('naInput');
+  const naSend = document.getElementById('naSend');
+  const naChips = document.getElementById('naChips');
+ 
+  let naHistory = [];   // [{role, content}]
+  let naBusy = false;
+ 
+  const naOpen = () => {
+    naPanel.classList.add('na-open'); naLauncher.classList.add('na-hidden');
+    setTimeout(() => naInput.focus(), 200);
+    if (!naHistory.length) naAddBubble('bot', "Hey — I'm Nischay. Ask me about my final year project, my time at Musgrave, or how I work.");
+  };
+  const naCloseFn = () => { naPanel.classList.remove('na-open'); naLauncher.classList.remove('na-hidden'); };
+  naLauncher.addEventListener('click', naOpen);
+  naClose.addEventListener('click', naCloseFn);
+ 
+  function naAddBubble(role, text) {
+    const div = document.createElement('div');
+    div.className = 'na-msg ' + (role === 'user' ? 'na-user' : 'na-bot');
+    div.textContent = text;
+    naLog.appendChild(div);
+    naLog.scrollTop = naLog.scrollHeight;
+  }
+  function naShowTyping() {
+    const t = document.createElement('div');
+    t.className = 'na-typing';
+    t.innerHTML = '<span></span><span></span><span></span>';
+    naLog.appendChild(t);
+    naLog.scrollTop = naLog.scrollHeight;
+    return t;
+  }
+ 
+  naInput.addEventListener('input', () => {
+    naInput.style.height = 'auto';
+    naInput.style.height = Math.min(naInput.scrollHeight, 120) + 'px';
+  });
+  naInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); naHandleSend(); }
+  });
+  naSend.addEventListener('click', naHandleSend);
+  naChips.addEventListener('click', (e) => {
+    if (e.target.classList.contains('na-chip')) { naInput.value = e.target.textContent; naHandleSend(); }
+  });
+ 
+  async function naHandleSend() {
+    const text = naInput.value.trim();
+    if (!text || naBusy) return;
+    naBusy = true; naSend.disabled = true; naChips.style.display = 'none';
+ 
+    naAddBubble('user', text);
+    naHistory.push({ role: 'user', content: text });
+    naInput.value = ''; naInput.style.height = 'auto';
+ 
+    const typing = naShowTyping();
+    try {
+      const res = await fetch(NA_WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: naHistory })   // bio lives in the Worker
+      });
+      const data = await res.json();
+      const reply = (data.content || [])
+        .filter(b => b.type === "text").map(b => b.text).join("\n").trim()
+        || "Sorry — something glitched there. Mind asking again?";
+      typing.remove();
+      naAddBubble('bot', reply);
+      naHistory.push({ role: 'assistant', content: reply });
+    } catch (err) {
+      typing.remove();
+      naAddBubble('bot', "I couldn't reach the server just now — try the contact section instead.");
+    } finally {
+      naBusy = false; naSend.disabled = false; naInput.focus();
+    }
+  }
+</script>
+<!-- <<< END 3 of 3 ============================================== -->
+
 </body>
 
 </html>
