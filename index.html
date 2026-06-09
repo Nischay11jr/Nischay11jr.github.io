@@ -3071,74 +3071,100 @@
 <script>
   const NA_WORKER_URL = "https://portfolio-chatbot.nischay11jr.workers.dev";
  
-  /* ---------- signature launcher animation ---------- */
+  /* ---------- launcher animation: voice waves resolving into the bubble-N ---------- */
   (function () {
     const cv = document.getElementById('naCanvas');
     const launcher = document.getElementById('naLauncher');
-    const SIZE = 60, DPR = Math.min(window.devicePixelRatio || 1, 2), PI2 = Math.PI * 2, C = SIZE / 2;
-    const lerp = (a, b, t) => a + (b - a) * t;
+    const SIZE = 60, DPR = Math.min(window.devicePixelRatio || 1, 2), PI2 = Math.PI * 2;
+    const C = SIZE / 2, R = C - 2, k = SIZE / 84;
+    const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     cv.width = SIZE * DPR; cv.height = SIZE * DPR; cv.style.width = SIZE + 'px'; cv.style.height = SIZE + 'px';
     const ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
- 
-    // Explicit N coordinates (in a 60px space), sized to sit comfortably in the disc.
-    // Three strokes, 5 points each, sharing corner points so the joints meet.
-    const strokes = [
-      [[18,17],[18,24],[18,30],[18,36],[18,43]],              // left bar (top→bottom)
-      [[18,17],[25,24],[30,30],[36,36],[42,43]],              // diagonal (top-left→bottom-right)
-      [[42,43],[42,36],[42,30],[42,24],[42,17]],              // right bar (bottom→top)
-    ];
-    const pts = [];
-    strokes.forEach(grp => grp.forEach(p => pts.push({
-      tx: p[0], ty: p[1],
-      x: Math.random() * SIZE, y: Math.random() * SIZE,
-      vx: (Math.random() - .5) * .22, vy: (Math.random() - .5) * .22
-    })));
- 
-    // st.e is the live energy; it eases toward a target each frame.
-    // When not hovered, the target follows an automatic breathe cycle so
-    // the N assembles and scatters on its own (for touch users).
-    const st = { e: 0.05, hover: false };
-    launcher.addEventListener('mouseenter', () => st.hover = true);
-    launcher.addEventListener('mouseleave', () => st.hover = false);
- 
-    // breathe cycle (ms): scatter → assemble → hold → scatter …
-    // formed target is 1.0 so the N fully settles and reads crisp on its own.
-    const SCATTER = 2600, FORM = 2800, LOOP = SCATTER + FORM;
-    const autoTarget = (t) => (t % LOOP) < FORM ? 1.0 : 0.05;
- 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
  
-    function draw(t) {
-      const target = st.hover ? 1 : autoTarget(t);
-      st.e += (target - st.e) * 0.06; const e = st.e;
-      ctx.clearRect(0, 0, SIZE, SIZE);
+    // device signals: gyro tilt + scroll
+    const Gs = { tx: 0, ty: 0, ttx: 0, tty: 0, scroll: 0 };
+    let lastY = window.scrollY;
+    addEventListener('scroll', () => { const d = Math.abs(scrollY - lastY); lastY = scrollY; Gs.scroll = Math.min(1.6, Gs.scroll + d * 0.04); }, { passive: true });
+    function onOrient(e) { if (e.gamma == null) return; Gs.ttx = clamp((e.beta - 45) / 35, -1, 1); Gs.tty = clamp(e.gamma / 35, -1, 1); }
+    addEventListener('deviceorientation', onOrient);
+    let askedMotion = false;
+    function requestMotion() { if (askedMotion) return; askedMotion = true; const D = window.DeviceOrientationEvent; if (D && typeof D.requestPermission === 'function') D.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => {}); }
+    (function gl() { Gs.tx += (Gs.ttx - Gs.tx) * 0.07; Gs.ty += (Gs.tty - Gs.ty) * 0.07; Gs.scroll *= 0.9; requestAnimationFrame(gl); })();
  
-      // soft glow when assembled — gives the disc a gentle pulse on mobile
-      if (e > 0.3) {
-        const g = ctx.createRadialGradient(C, C, 0, C, C, C);
-        g.addColorStop(0, `rgba(255,122,69,${(e - 0.3) * 0.13})`);
-        g.addColorStop(1, 'rgba(255,122,69,0)');
-        ctx.fillStyle = g; ctx.fillRect(0, 0, SIZE, SIZE);
-      }
- 
-      pts.forEach(p => {
-        p.x += p.vx; p.y += p.vy;
-        if (Math.hypot(p.x - C, p.y - C) > C - 6) { p.vx *= -1; p.vy *= -1; }
-        p.cx = lerp(p.x, p.tx, e); p.cy = lerp(p.y, p.ty, e);
-      });
- 
-      // strokes carry the letter; opacity ramps to full so the N is solid at peak
-      if (e > 0.2) {
-        ctx.strokeStyle = `rgba(255,122,69,${Math.min(1, (e - 0.2) * 1.7)})`;
-        ctx.lineWidth = 1.7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        let i = 0;
-        strokes.forEach(grp => { ctx.beginPath(); grp.forEach((_, j) => { const p = pts[i + j]; j ? ctx.lineTo(p.cx, p.cy) : ctx.moveTo(p.cx, p.cy); }); ctx.stroke(); i += grp.length; });
-      }
-      pts.forEach(p => { ctx.fillStyle = `rgba(255,175,125,${0.45 + 0.5 * e})`; ctx.beginPath(); ctx.arc(p.cx, p.cy, 1.1 + e * 0.5, 0, PI2); ctx.fill(); });
+    const PHASES = [['breathe', 1700], ['converge', 460], ['hold', 900], ['diverge', 420]];
+    const LOOP = PHASES.reduce((a, p) => a + p[1], 0);
+    function timeline(el) {
+      let e = el % LOOP, name, pt;
+      for (const [n, d] of PHASES) { if (e < d) { name = n; pt = e / d; break; } e -= d; }
+      let ap = 10 + Math.sin(el * 0.0013) * 2, nA = 0, nS = 0.6, yOff = 0, sqY = 1, pulse = 0;
+      if (name === 'converge') { const u = ease(pt); ap = 12 * (1 - u); nA = clamp((pt - 0.2) / 0.8, 0, 1); nS = 0.62 + 0.38 * u; }
+      else if (name === 'hold') { ap = 0; nA = 1; nS = 1; const h = clamp(pt / 0.4, 0, 1); yOff = -Math.sin(h * Math.PI); sqY = 1 + 0.09 * Math.sin(h * PI2); pulse = 1 - ease(clamp(pt * 4, 0, 1)); }
+      else if (name === 'diverge') { const u = ease(pt); ap = 12 * u; nA = 1 - u; nS = 1 - 0.38 * u; }
+      return { ap, nA, nS, yOff, sqY, pulse };
     }
  
-    if (reduce) { st.e = 1; draw(0); }   // static, fully-formed N, no looping motion
-    else { (function loop(t) { draw(t || 0); requestAnimationFrame(loop); })(); }
+    const st = { burst: 0, start: performance.now(), px: C, py: C, hb: 0, m: { x: C, y: C, active: false } };
+    launcher.addEventListener('pointerdown', () => { st.burst = 1; st.start = performance.now(); requestMotion(); });
+    launcher.addEventListener('pointermove', e => { const r = cv.getBoundingClientRect(); st.m.x = e.clientX - r.left; st.m.y = e.clientY - r.top; st.m.active = true; });
+    launcher.addEventListener('pointerleave', () => st.m.active = false);
+ 
+    // the speech-bubble N mark, drawn on a 100-unit box
+    function drawMark(nA, nS, yOff, sqY, pulse) {
+      if (nA <= 0.01) return;
+      const ms = SIZE / 100 * 0.72, hop = yOff * 9 * k;
+      ctx.save();
+      ctx.translate(C, C + hop); ctx.scale(nS * ms, nS * sqY * ms); ctx.translate(-50, -47);
+      const gr = 30 + pulse * 18, gg = ctx.createRadialGradient(50, 48, 0, 50, 48, gr);
+      gg.addColorStop(0, `rgba(116,192,217,${0.26 * nA + pulse * 0.45})`); gg.addColorStop(1, 'rgba(116,192,217,0)');
+      ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(50, 48, gr, 0, PI2); ctx.fill();
+      ctx.globalAlpha = nA;
+      ctx.fillStyle = `rgb(255,${Math.round(122 + pulse * 110)},${Math.round(69 + pulse * 130)})`;
+      ctx.beginPath();
+      ctx.moveTo(14, 12); ctx.lineTo(86, 12); ctx.lineTo(86, 70); ctx.lineTo(42, 70);
+      ctx.lineTo(28, 88); ctx.lineTo(28, 70); ctx.lineTo(14, 70); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#15100b'; ctx.lineWidth = 8; ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+      ctx.beginPath();
+      ctx.moveTo(39, 58); ctx.lineTo(39, 24);
+      ctx.moveTo(39, 24); ctx.lineTo(59, 58);
+      ctx.moveTo(59, 58); ctx.lineTo(59, 24);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+ 
+    function frame(now) {
+      st.burst *= 0.9;
+      const { ap, nA: nA0, nS, yOff, sqY, pulse } = timeline(now - st.start);
+      const nA = nA0 * (1 - st.burst);
+      st.hb += ((st.m.active ? 1 : 0) - st.hb) * 0.1;
+      let tgx = C + Gs.ty * 6 * k, tgy = C + Gs.tx * 6 * k;
+      if (st.m.active) { tgx = C + (clamp(st.m.x, 0, SIZE) - C) * 0.62; tgy = C + (clamp(st.m.y, 0, SIZE) - C) * 0.62; }
+      st.px += (tgx - st.px) * 0.12; st.py += (tgy - st.py) * 0.12;
+      const sx = st.px, sy = st.py;
+      const amp = (ap + st.burst * 16 + Gs.scroll * 5) * (1 + st.hb * 0.5);
+      const t = now * 0.001;
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      ctx.save(); ctx.beginPath(); ctx.arc(C, C, R, 0, PI2); ctx.clip();
+      ctx.globalAlpha = 1 - nA;
+      const cg = ctx.createRadialGradient(sx, sy, 0, sx, sy, 14 * k);
+      cg.addColorStop(0, `rgba(255,122,69,${.32 + st.hb * .2})`); cg.addColorStop(1, 'rgba(255,122,69,0)');
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(sx, sy, 14 * k, 0, PI2); ctx.fill();
+      for (let ring = 0; ring < 2; ring++) {
+        const base = (12 + ring * 6) * k, a2 = amp * 0.5 * k * (1 - ring * 0.3);
+        ctx.strokeStyle = `rgba(255,122,69,${0.62 - ring * 0.26})`; ctx.lineWidth = 1.4 * k; ctx.beginPath();
+        for (let i = 0; i <= 84; i++) { const a = i / 84 * PI2; const r = base + a2 * (Math.sin(a * 6 + t * 4 + ring) * .5 + Math.sin(a * 11 - t * 3) * .3 + Math.sin(a * 3 + t * 2) * .4); const x = sx + Math.cos(a) * r, y = sy + Math.sin(a) * r; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.closePath(); ctx.stroke();
+      }
+      ctx.fillStyle = '#ffb486'; ctx.beginPath(); ctx.arc(sx, sy, 2.4 * k, 0, PI2); ctx.fill();
+      ctx.globalAlpha = 1;
+      drawMark(nA, nS, yOff, sqY, pulse);
+      ctx.restore();
+      if (!reduce) requestAnimationFrame(frame);
+    }
+    if (reduce) { st.start = performance.now() - 2160; frame(performance.now()); } // static, formed bubble-N
+    else frame(performance.now());
   })();
  
   /* ---------- chat ---------- */
