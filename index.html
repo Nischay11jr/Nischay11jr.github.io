@@ -3033,7 +3033,7 @@
     })();
   </script>
 
-  <!-- >>> COPY 2 of 3 — markup (paste just before </body>) ========= -->
+ <!-- >>> COPY 2 of 3 — markup (paste just before </body>) ========= -->
 <div class="na-launcher" id="naLauncher" role="button" aria-label="Ask Nischay">
   <div class="na-reveal">Ask Nischay</div>
   <div class="na-disc"><canvas id="naCanvas"></canvas></div>
@@ -3050,9 +3050,9 @@
   </div>
   <div class="na-log" id="naLog"></div>
   <div class="na-chips" id="naChips">
-    <button class="na-chip">What's your FYP about?</button>
-    <button class="na-chip">Why should I hire you?</button>
-    <button class="na-chip">What do you enjoy most?</button>
+    <button class="na-chip">What's his FYP about?</button>
+    <button class="na-chip">Why should I hire him?</button>
+    <button class="na-chip">What's he like?</button>
   </div>
   <div class="na-foot">
     <div class="na-inputrow">
@@ -3063,8 +3063,9 @@
   </div>
 </div>
 <!-- <<< END 2 of 3 ============================================== -->
-
-  <!-- >>> COPY 3 of 3 — script (paste just before </body>) ========= -->
+ 
+ 
+<!-- >>> COPY 3 of 3 — script (paste just before </body>) ========= -->
 <script>
   const NA_WORKER_URL = "https://portfolio-chatbot.nischay11jr.workers.dev";
  
@@ -3151,7 +3152,7 @@
   const naOpen = () => {
     naPanel.classList.add('na-open'); naLauncher.classList.add('na-hidden');
     setTimeout(() => naInput.focus(), 200);
-    if (!naHistory.length) naAddBubble('bot', "Hey, I'm Nischay. Ask me about my final year project, my time at Musgrave, or how I work.");
+    if (!naHistory.length) naAddBubble('bot', "Hey, I'm Nischay's assistant. Ask me anything about him, his work, or what he's like.");
   };
   const naCloseFn = () => { naPanel.classList.remove('na-open'); naLauncher.classList.remove('na-hidden'); };
   naLauncher.addEventListener('click', naOpen);
