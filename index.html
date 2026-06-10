@@ -1984,17 +1984,18 @@
     }
   </style>
 
-  <!-- >>> COPY 1 of 3 — styles ===================================== -->
+
+<!-- ===== Nischay's portfolio chatbot widget (voice→bubble-N launcher, email + page-scroll skills) ===== -->
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
- 
+
   :root {
     --na-bg: #16110d; --na-surface: #211a15; --na-surface-2: #2b2219; --na-border: #3a2f25;
     --na-text: #efe8e0; --na-muted: #b6a895; --na-accent: #ff7a45; --na-accent-dim: #c75d33; --na-secondary: #74c0d9;
     --na-mono: 'JetBrains Mono', monospace; --na-sans: 'Manrope', sans-serif; --na-serif: 'Fraunces', serif;
   }
   .na-launcher, .na-panel, .na-panel * { box-sizing: border-box; }
- 
+
   /* ---- signature launcher ---- */
   .na-launcher {
     position: fixed; bottom: 26px; right: 26px; z-index: 9998;
@@ -2024,7 +2025,7 @@
     box-shadow: 0 14px 38px rgba(0,0,0,.55), 0 0 24px rgba(255,122,69,.28), inset 0 0 16px rgba(0,0,0,.35);
   }
   .na-launcher:hover .na-reveal { max-width: 220px; opacity: 1; transform: translateX(0); }
- 
+
   /* ---- panel ---- */
   .na-panel {
     position: fixed; bottom: 26px; right: 26px; z-index: 9999;
@@ -2063,10 +2064,16 @@
   .na-send:hover:not(:disabled) { background: #ff8c5c; } .na-send:active:not(:disabled) { transform: scale(.93); } .na-send:disabled { opacity: .4; cursor: default; }
   .na-disclaimer { text-align: center; font-family: var(--na-mono); font-size: 10.5px; color: var(--na-muted); margin-top: 9px; opacity: .8; }
   @keyframes na-bounce { 0%,60%,100% { transform: translateY(0); opacity:.5;} 30% { transform: translateY(-5px); opacity:1; } }
+  /* brief highlight when the bot scrolls you to a section */
+  @keyframes na-flash-kf {
+    0%   { box-shadow: 0 0 0 0 rgba(255,122,69,0); }
+    18%  { box-shadow: 0 0 0 3px rgba(255,122,69,.55), 0 0 26px rgba(255,122,69,.32); }
+    100% { box-shadow: 0 0 0 0 rgba(255,122,69,0); }
+  }
+  .na-flash { animation: na-flash-kf 1.7s ease-out; border-radius: 12px; }
+
   @media (prefers-reduced-motion: reduce) { .na-launcher, .na-panel, .na-panel * { transition-duration: .001ms !important; } }
 </style>
-<!-- <<< END 1 of 3 ============================================== -->
-  
 </head>
 
 <body>
@@ -2191,7 +2198,7 @@
               closer to a <em>friend</em>. The elegance of how it speaks comes from nothing more than a model predicting
               the next character, the next word. Knowing that makes it stranger and more compelling, not less. We've
               gone from imagining this to living inside it, different AIs for different tasks, every answer one prompt
-              away instead of buried in a hundred pages. The pace since AI industry took off. I want to
+              away instead of buried in a hundred pages. The pace since AI industry shipped has been remarkable. I want to
               be inside that pace, not outside watching it.</p>
             <p>Coming from Delhi to Cork flipped my world. Delhi is loud, packed, layered with a culture I grew up
               inside; Cork is quieter, smaller, lived more on your own terms. The change was drastic, but I'm glad I
@@ -2228,7 +2235,7 @@
               </div>
               <div class="about-stat">
                 <div class="n">1</div>
-                <div class="l">Goal: build</div>
+                <div class="l">Goal: ship</div>
               </div>
             </div>
           </div>
@@ -2546,10 +2553,10 @@
             </div>
             <div class="proj-desc">
               <p>Always building something. New projects are in the works, mostly around AI and the things I want to see
-                exist. Check back, or reach out if you'd like to know what I'm working on right now..</p>
+                exist. Check back, or reach out if you'd like to know what I'm working on right now.</p>
               <div class="proj-stack">
                 <span>AI</span>
-                <span>Full Stack</span>
+                <span>Full-Stack</span>
                 <span>Experiments</span>
               </div>
             </div>
@@ -3035,12 +3042,14 @@
     })();
   </script>
 
- <!-- >>> COPY 2 of 3 — markup (paste just before </body>) ========= -->
+
+
+<!-- ===== Nischay's portfolio chatbot widget (voice→bubble-N launcher, email + page-scroll skills) ===== -->
 <div class="na-launcher" id="naLauncher" role="button" aria-label="Ask Nischay">
   <div class="na-reveal">Ask Nischay</div>
   <div class="na-disc"><canvas id="naCanvas"></canvas></div>
 </div>
- 
+
 <div class="na-panel" id="naPanel">
   <div class="na-head">
     <div class="na-avatar">N</div>
@@ -3064,13 +3073,27 @@
     <div class="na-disclaimer">AI-generated · answers reflect my portfolio</div>
   </div>
 </div>
-<!-- <<< END 2 of 3 ============================================== -->
- 
- 
-<!-- >>> COPY 3 of 3 — script (paste just before </body>) ========= -->
+
 <script>
   const NA_WORKER_URL = "https://portfolio-chatbot.nischay11jr.workers.dev";
- 
+
+  // Where each chatbot target scrolls to, mapped to YOUR page's real
+  // structure. A key whose element isn't found is simply skipped.
+  const NA_SECTION_MAP = {
+    hero:        "#hero",
+    about:       "#about",
+    skills:      "#skills",
+    experience:  "#experience",
+    staffbot:    "#experience .exp-list .exp-item:nth-of-type(1)",
+    projects:    "#projects",
+    fyp:         "#projects .proj-list article:nth-of-type(1)",
+    fabfitfinds: "#projects .proj-list article:nth-of-type(2)",
+    education:   "#education",
+    interests:   "#interests",
+    contact:     "#contact",
+  };
+  const NA_SCROLL_OFFSET = 84; // clears your fixed top nav so sections aren't hidden under it
+
   /* ---------- launcher animation: voice waves resolving into the bubble-N ---------- */
   (function () {
     const cv = document.getElementById('naCanvas');
@@ -3082,7 +3105,7 @@
     cv.width = SIZE * DPR; cv.height = SIZE * DPR; cv.style.width = SIZE + 'px'; cv.style.height = SIZE + 'px';
     const ctx = cv.getContext('2d'); ctx.scale(DPR, DPR);
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- 
+
     // device signals: gyro tilt + scroll
     const Gs = { tx: 0, ty: 0, ttx: 0, tty: 0, scroll: 0 };
     let lastY = window.scrollY;
@@ -3092,7 +3115,7 @@
     let askedMotion = false;
     function requestMotion() { if (askedMotion) return; askedMotion = true; const D = window.DeviceOrientationEvent; if (D && typeof D.requestPermission === 'function') D.requestPermission().then(s => { if (s === 'granted') addEventListener('deviceorientation', onOrient); }).catch(() => {}); }
     (function gl() { Gs.tx += (Gs.ttx - Gs.tx) * 0.07; Gs.ty += (Gs.tty - Gs.ty) * 0.07; Gs.scroll *= 0.9; requestAnimationFrame(gl); })();
- 
+
     const PHASES = [['breathe', 1700], ['converge', 460], ['hold', 900], ['diverge', 420]];
     const LOOP = PHASES.reduce((a, p) => a + p[1], 0);
     function timeline(el) {
@@ -3104,12 +3127,12 @@
       else if (name === 'diverge') { const u = ease(pt); ap = 12 * u; nA = 1 - u; nS = 1 - 0.38 * u; }
       return { ap, nA, nS, yOff, sqY, pulse };
     }
- 
+
     const st = { burst: 0, start: performance.now(), px: C, py: C, hb: 0, m: { x: C, y: C, active: false } };
     launcher.addEventListener('pointerdown', () => { st.burst = 1; st.start = performance.now(); requestMotion(); });
     launcher.addEventListener('pointermove', e => { const r = cv.getBoundingClientRect(); st.m.x = e.clientX - r.left; st.m.y = e.clientY - r.top; st.m.active = true; });
     launcher.addEventListener('pointerleave', () => st.m.active = false);
- 
+
     // the speech-bubble N mark, drawn on a 100-unit box
     function drawMark(nA, nS, yOff, sqY, pulse) {
       if (nA <= 0.01) return;
@@ -3133,7 +3156,7 @@
       ctx.globalAlpha = 1;
       ctx.restore();
     }
- 
+
     function frame(now) {
       st.burst *= 0.9;
       const { ap, nA: nA0, nS, yOff, sqY, pulse } = timeline(now - st.start);
@@ -3166,7 +3189,7 @@
     if (reduce) { st.start = performance.now() - 2160; frame(performance.now()); } // static, formed bubble-N
     else frame(performance.now());
   })();
- 
+
   /* ---------- chat ---------- */
   const naLauncher = document.getElementById('naLauncher');
   const naPanel = document.getElementById('naPanel');
@@ -3176,7 +3199,7 @@
   const naSend = document.getElementById('naSend');
   const naChips = document.getElementById('naChips');
   let naHistory = [], naBusy = false;
- 
+
   const naOpen = () => {
     naPanel.classList.add('na-open'); naLauncher.classList.add('na-hidden');
     setTimeout(() => naInput.focus(), 200);
@@ -3185,7 +3208,7 @@
   const naCloseFn = () => { naPanel.classList.remove('na-open'); naLauncher.classList.remove('na-hidden'); };
   naLauncher.addEventListener('click', naOpen);
   naClose.addEventListener('click', naCloseFn);
- 
+
   function naAddBubble(role, text) {
     const d = document.createElement('div');
     d.className = 'na-msg ' + (role === 'user' ? 'na-user' : 'na-bot');
@@ -3200,7 +3223,26 @@
   naInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); naHandleSend(); } });
   naSend.addEventListener('click', naHandleSend);
   naChips.addEventListener('click', (e) => { if (e.target.classList.contains('na-chip')) { naInput.value = e.target.textContent; naHandleSend(); } });
- 
+
+  // Act on browser-side instructions the Worker returns (e.g. scrolling).
+  // The chat panel is deliberately left open the whole time.
+  function naRunActions(actions) {
+    for (const a of actions) {
+      if (a && a.type === 'scroll' && a.section) naScrollTo(a.section);
+    }
+  }
+  function naScrollTo(key) {
+    const sel = NA_SECTION_MAP[key];
+    if (!sel) return;
+    const el = document.querySelector(sel);
+    if (!el) { console.warn('[chatbot] no element mapped for section:', key, '->', sel); return; }
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const y = el.getBoundingClientRect().top + window.scrollY - NA_SCROLL_OFFSET;
+    window.scrollTo({ top: Math.max(0, y), behavior: reduce ? 'auto' : 'smooth' });
+    el.classList.remove('na-flash'); void el.offsetWidth; el.classList.add('na-flash');
+    setTimeout(() => el.classList.remove('na-flash'), 1700);
+  }
+
   async function naHandleSend() {
     const text = naInput.value.trim();
     if (!text || naBusy) return;
@@ -3217,14 +3259,12 @@
       const reply = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim()
         || "Sorry, something glitched there. Mind asking again?";
       typing.remove(); naAddBubble('bot', reply); naHistory.push({ role: 'assistant', content: reply });
+      if (Array.isArray(data.actions)) naRunActions(data.actions);
     } catch (err) {
       typing.remove(); naAddBubble('bot', "I couldn't reach the server just now. Try the contact section instead.");
     } finally { naBusy = false; naSend.disabled = false; naInput.focus(); }
   }
 </script>
-<!-- <<< END 3 of 3 ============================================== -->
- 
-
 </body>
 
 </html>
