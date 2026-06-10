@@ -2050,6 +2050,9 @@
   .na-msg { max-width: 86%; font-size: 14.5px; line-height: 1.55; }
   .na-msg.na-bot { align-self: flex-start; background: var(--na-surface-2); color: var(--na-text); border: 1px solid var(--na-border); padding: 11px 14px; border-radius: 4px 14px 14px 14px; }
   .na-msg.na-user { align-self: flex-end; background: var(--na-accent); color: #1a120c; font-weight: 500; padding: 11px 14px; border-radius: 14px 14px 4px 14px; }
+  .na-linkrow { background: none !important; border: none !important; padding: 0 !important; }
+  .na-linkchip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--na-mono); font-size: 12.5px; letter-spacing: .02em; text-decoration: none; color: var(--na-accent); background: rgba(255,122,69,.10); border: 1px solid rgba(255,122,69,.45); border-radius: 999px; padding: 8px 14px; transition: background .15s ease, transform .15s ease; }
+  .na-linkchip:hover { background: rgba(255,122,69,.18); transform: translateY(-1px); }
   .na-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 6px; }
   .na-chip { font-family: var(--na-mono); font-size: 12px; color: var(--na-muted); background: transparent; border: 1px solid var(--na-border); border-radius: 999px; padding: 7px 12px; cursor: pointer; transition: border-color .15s, color .15s; }
   .na-chip:hover { border-color: var(--na-accent-dim); color: var(--na-text); }
@@ -3061,9 +3064,11 @@
   </div>
   <div class="na-log" id="naLog"></div>
   <div class="na-chips" id="naChips">
-    <button class="na-chip">What's his FYP about?</button>
-    <button class="na-chip">Why should I hire him?</button>
     <button class="na-chip">What's he like?</button>
+    <button class="na-chip">Show me his FYP</button>
+    <button class="na-chip">See his GitHub</button>
+    <button class="na-chip">Book a call</button>
+    <button class="na-chip">Why should I hire him?</button>
   </div>
   <div class="na-foot">
     <div class="na-inputrow">
@@ -3203,7 +3208,7 @@
   const naOpen = () => {
     naPanel.classList.add('na-open'); naLauncher.classList.add('na-hidden');
     setTimeout(() => naInput.focus(), 200);
-    if (!naHistory.length) naAddBubble('bot', "Hey, I'm Nischay's assistant. Ask me anything about him, his work, or what he's like.");
+    if (!naHistory.length) naAddBubble('bot', "Hey, I'm Nischay's assistant. I can tell you what he's about, walk you through his projects, pull up his code, or set you up with a call. What are you after?");
   };
   const naCloseFn = () => { naPanel.classList.remove('na-open'); naLauncher.classList.remove('na-hidden'); };
   naLauncher.addEventListener('click', naOpen);
@@ -3228,8 +3233,24 @@
   // The chat panel is deliberately left open the whole time.
   function naRunActions(actions) {
     for (const a of actions) {
-      if (a && a.type === 'scroll' && a.section) naScrollTo(a.section);
+      if (!a) continue;
+      if (a.type === 'scroll' && a.section) naScrollTo(a.section);
+      else if (a.type === 'open' && a.url) naOpenLink(a.url, a.label);
     }
+  }
+  function naOpenLink(url, label) {
+    // try to open directly; browsers often block pop-ups that follow an async
+    // reply, so always leave a one-tap link in the chat as a reliable fallback.
+    let win = null;
+    try { win = window.open(url, '_blank', 'noopener,noreferrer'); } catch (e) {}
+    const wrap = document.createElement('div');
+    wrap.className = 'na-msg na-bot na-linkrow';
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.className = 'na-linkchip';
+    a.textContent = (label || 'Open link') + '  \u2197';
+    wrap.appendChild(a);
+    naLog.appendChild(wrap); naLog.scrollTop = naLog.scrollHeight;
   }
   function naScrollTo(key) {
     const sel = NA_SECTION_MAP[key];
