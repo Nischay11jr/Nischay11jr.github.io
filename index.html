@@ -3208,6 +3208,7 @@
   const naOpen = () => {
     naPanel.classList.add('na-open'); naLauncher.classList.add('na-hidden');
     setTimeout(() => naInput.focus(), 200);
+    window.__naTrack && window.__naTrack('open');
     if (!naHistory.length) naAddBubble('bot', "Hey, I'm Nischay's assistant. I can tell you what he's about, walk you through his projects, pull up his code, or set you up with a call. What are you after?");
   };
   const naCloseFn = () => { naPanel.classList.remove('na-open'); naLauncher.classList.remove('na-hidden'); };
@@ -3227,15 +3228,15 @@
   naInput.addEventListener('input', () => { naInput.style.height = 'auto'; naInput.style.height = Math.min(naInput.scrollHeight, 120) + 'px'; });
   naInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); naHandleSend(); } });
   naSend.addEventListener('click', naHandleSend);
-  naChips.addEventListener('click', (e) => { if (e.target.classList.contains('na-chip')) { naInput.value = e.target.textContent; naHandleSend(); } });
+  naChips.addEventListener('click', (e) => { if (e.target.classList.contains('na-chip')) { window.__naTrack && window.__naTrack('chip', e.target.textContent); naInput.value = e.target.textContent; naHandleSend(); } });
 
   // Act on browser-side instructions the Worker returns (e.g. scrolling).
   // The chat panel is deliberately left open the whole time.
   function naRunActions(actions) {
     for (const a of actions) {
       if (!a) continue;
-      if (a.type === 'scroll' && a.section) naScrollTo(a.section);
-      else if (a.type === 'open' && a.url) naOpenLink(a.url, a.label);
+      if (a.type === 'scroll' && a.section) { window.__naTrack && window.__naTrack('action', 'scroll:' + a.section); naScrollTo(a.section); }
+      else if (a.type === 'open' && a.url) { window.__naTrack && window.__naTrack('action', 'open:' + (a.label || 'link')); naOpenLink(a.url, a.label); }
     }
   }
   function naOpenLink(url, label) {
@@ -3269,6 +3270,7 @@
     if (!text || naBusy) return;
     naBusy = true; naSend.disabled = true; naChips.style.display = 'none';
     naAddBubble('user', text); naHistory.push({ role: 'user', content: text });
+    window.__naTrack && window.__naTrack('msg');
     naInput.value = ''; naInput.style.height = 'auto';
     const typing = naShowTyping();
     try {
@@ -3285,6 +3287,81 @@
       typing.remove(); naAddBubble('bot', "I couldn't reach the server just now. Try the contact section instead.");
     } finally { naBusy = false; naSend.disabled = false; naInput.focus(); }
   }
+</script>
+<!-- ===== hidden analytics: anonymous, no cookies, aggregate only ===== -->
+<script>
+(function () {
+  var COLLECT = "https://portfolio-chatbot.nischay11jr.workers.dev/collect";
+  var SECTION_IDS = ["hero","about","skills","experience","projects","education","interests","contact"];
+  if (navigator.doNotTrack === "1" || window.doNotTrack === "1") { window.__naTrack = function(){}; return; }
+
+  var pending = blank(); pending.pv = 1;
+  var viewed = {}, buckets = {}, visible = {}, lastTick = Date.now(), sentPV = false;
+  function blank(){ return { pv:0, st:{}, sv:[], sd:[], ck:{}, co:0, cc:{}, cm:0, ca:{} }; }
+  function bump(m,k){ if(k){ m[k] = (m[k]||0)+1; } }
+  function norm(s){ return String(s).trim().replace(/\s+/g,' ').slice(0,60); }
+  function throttle(fn,ms){ var t=0; return function(){ var n=Date.now(); if(n-t>=ms){ t=n; fn(); } }; }
+
+  // chatbot hooks call this
+  window.__naTrack = function (kind, label) {
+    if (kind === 'open') pending.co += 1;
+    else if (kind === 'msg') pending.cm += 1;
+    else if (kind === 'chip') bump(pending.cc, norm(label));
+    else if (kind === 'action') bump(pending.ca, norm(label));
+  };
+
+  // time per section
+  var els = SECTION_IDS.map(function(id){ return document.getElementById(id); }).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        var id = en.target.id;
+        if (en.isIntersecting && en.intersectionRatio >= 0.4) {
+          visible[id] = true;
+          if (!viewed[id]) { viewed[id] = true; pending.sv.push(id); }
+        } else { visible[id] = false; }
+      });
+    }, { threshold: [0, 0.4, 0.75] });
+    els.forEach(function(el){ io.observe(el); });
+  }
+  setInterval(function(){
+    var now = Date.now(), dt = (now - lastTick) / 1000; lastTick = now;
+    if (document.visibilityState !== 'visible' || dt <= 0 || dt > 10) return;
+    for (var id in visible) if (visible[id]) pending.st[id] = (pending.st[id] || 0) + dt;
+  }, 1000);
+
+  // scroll depth
+  function onScroll(){
+    var doc = document.documentElement;
+    var denom = doc.scrollHeight - window.innerHeight;
+    var pct = denom > 0 ? Math.min(100, Math.round(((window.scrollY || doc.scrollTop) / denom) * 100)) : 100;
+    [25,50,75,100].forEach(function(b){ if (pct >= b && !buckets[b]) { buckets[b] = true; pending.sd.push(b); } });
+  }
+  window.addEventListener('scroll', throttle(onScroll, 400), { passive: true });
+  onScroll();
+
+  // clicks outside the chatbot (the bot reports its own via __naTrack)
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a, button');
+    if (!a || (a.closest && a.closest('.na-panel, .na-launcher'))) return;
+    var label = a.getAttribute('data-track') || (a.textContent || '').trim() || a.getAttribute('aria-label') || a.getAttribute('href') || 'click';
+    bump(pending.ck, norm(label));
+  }, true);
+
+  function flush(){
+    var has = pending.pv || pending.sv.length || pending.sd.length || pending.cm || pending.co
+      || Object.keys(pending.st).length || Object.keys(pending.ck).length
+      || Object.keys(pending.cc).length || Object.keys(pending.ca).length;
+    if (!has) return;
+    var payload = JSON.stringify(pending);
+    pending = blank(); sentPV = true;
+    try { var blob = new Blob([payload], { type: 'text/plain' }); if (navigator.sendBeacon && navigator.sendBeacon(COLLECT, blob)) return; } catch (e) {}
+    try { fetch(COLLECT, { method: 'POST', body: payload, headers: { 'Content-Type': 'text/plain' }, keepalive: true, mode: 'cors' }); } catch (e) {}
+  }
+  setInterval(flush, 15000);
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+})();
 </script>
 </body>
 
