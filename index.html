@@ -3295,12 +3295,33 @@
   var SECTION_IDS = ["hero","about","skills","experience","projects","education","interests","contact"];
   if (navigator.doNotTrack === "1" || window.doNotTrack === "1") { window.__naTrack = function(){}; return; }
 
-  var pending = blank(); pending.pv = 1;
+  var pending = blank(); pending.pv = 1; pending.rf = computeSource();
   var viewed = {}, buckets = {}, visible = {}, lastTick = Date.now(), sentPV = false;
-  function blank(){ return { pv:0, st:{}, sv:[], sd:[], ck:{}, co:0, cc:{}, cm:0, ca:{} }; }
+  function blank(){ return { pv:0, rf:"", st:{}, sv:[], sd:[], ck:{}, co:0, cc:{}, cm:0, ca:{} }; }
   function bump(m,k){ if(k){ m[k] = (m[k]||0)+1; } }
   function norm(s){ return String(s).trim().replace(/\s+/g,' ').slice(0,60); }
   function throttle(fn,ms){ var t=0; return function(){ var n=Date.now(); if(n-t>=ms){ t=n; fn(); } }; }
+
+  // turn the referrer into a clean source label (no full URLs, no query strings)
+  function computeSource(){
+    try {
+      var r = document.referrer || "";
+      if (!r) return "direct";
+      var h = new URL(r).hostname.replace(/^www\./, "").toLowerCase();
+      if (!h || h === location.hostname) return "direct";
+      if (/(^|\.)instagram\.com$/.test(h)) return "instagram";
+      if (/(^|\.)linkedin\.com$/.test(h) || h === "lnkd.in") return "linkedin";
+      if (/(^|\.)(twitter\.com|x\.com)$/.test(h) || h === "t.co") return "twitter/x";
+      if (/(^|\.)facebook\.com$/.test(h) || h === "fb.me") return "facebook";
+      if (/(^|\.)google\./.test(h)) return "google";
+      if (/(^|\.)bing\.com$/.test(h)) return "bing";
+      if (/(^|\.)duckduckgo\.com$/.test(h)) return "duckduckgo";
+      if (/(^|\.)github\.com$/.test(h)) return "github";
+      if (/(^|\.)reddit\.com$/.test(h)) return "reddit";
+      if (/(^|\.)youtube\.com$/.test(h) || h === "youtu.be") return "youtube";
+      return h.slice(0, 40);
+    } catch (e) { return "direct"; }
+  }
 
   // chatbot hooks call this
   window.__naTrack = function (kind, label) {
